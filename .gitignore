@@ -54,3 +54,5 @@ downloads/
 *.xlsx
 
 *.json
+youtube_token.json
+youtube_oauth_credentials.json
