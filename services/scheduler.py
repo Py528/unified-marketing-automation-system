@@ -382,7 +382,7 @@ def publish_video(self, video_path: str, metadata: Dict[str, Any]):
             "title": metadata.get("title", filename),
             "description": metadata.get("description", ""),
             "tags": metadata.get("tags", []),
-            "privacy_status": metadata.get("privacy_status", "unlisted"),
+            "privacy_status": metadata.get("privacy_status", "public"),
             "video_path": video_path
         }
         

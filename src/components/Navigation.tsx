@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { Search, Video, Bell, HelpCircle, ChevronDown, WifiOff, Settings, LogOut } from 'lucide-react';
+import { Search, Bell, HelpCircle, ChevronDown, WifiOff, Upload } from 'lucide-react';
+import UploadModal from '@/components/UploadModal';
 
-export default function Navigation({ isOffline }: { isOffline?: boolean }) {
+interface NavigationProps {
+  isOffline?: boolean;
+  onUploadSuccess?: (video: any) => void;
+}
+
+export default function Navigation({ isOffline, onUploadSuccess }: NavigationProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3">
@@ -59,8 +66,12 @@ export default function Navigation({ isOffline }: { isOffline?: boolean }) {
             <ChevronDown className="w-4 h-4" />
           </button>
 
-          <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
-            <Video className="w-5 h-5 text-gray-600" />
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-orange-600 text-white text-sm font-bold rounded-lg hover:bg-orange-700 transition-colors shadow-lg shadow-orange-600/20"
+          >
+            <Upload className="w-4 h-4" />
+            Upload Video
           </button>
 
           <button className="p-2 hover:bg-gray-50 rounded-lg relative transition-colors">
@@ -108,6 +119,14 @@ export default function Navigation({ isOffline }: { isOffline?: boolean }) {
           </div>
         </div>
       </div>
+
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUploadSuccess={(video) => {
+          onUploadSuccess?.(video);
+        }}
+      />
     </nav>
   );
 }

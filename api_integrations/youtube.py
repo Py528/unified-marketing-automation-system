@@ -43,7 +43,10 @@ class YouTubeIntegration(BaseIntegration):
         # Initialize OAuth2 client if credentials provided
         if self.oauth_credentials:
             self._init_oauth_client()
-    
+
+    def _get_client(self):
+        """Get authenticated client if available, fallback to public client."""
+        return self.youtube_oauth if self.youtube_oauth else self.youtube    
     def _init_oauth_client(self):
         """Initialize OAuth2 client for authenticated operations."""
         try:
@@ -154,22 +157,32 @@ class YouTubeIntegration(BaseIntegration):
                 "synced_at": datetime.utcnow().isoformat()
             }
             
-            if channel_id:
-                request = self.youtube.channels().list(
+            if self.youtube_oauth:
+                # Always prioritize authenticated "mine" view to ensure full access
+                request = self.youtube_oauth.channels().list(
+                    part="statistics,snippet",
+                    mine=True
+                )
+            elif channel_id and self.youtube:
+                 request = self.youtube.channels().list(
                     part="statistics,snippet",
                     id=channel_id
                 )
-                response = request.execute()
-                
-                if response.get("items"):
-                    item = response["items"][0]
-                    stats_data = item.get("statistics", {})
-                    stats.update({
-                        "subscriber_count": int(stats_data.get("subscriberCount", 0)),
-                        "video_count": int(stats_data.get("videoCount", 0)),
-                        "view_count": int(stats_data.get("viewCount", 0)),
-                        "channel_name": item.get("snippet", {}).get("title", "")
-                    })
+            else:
+                return {"error": "Channel ID required or OAuth credentials missing"}
+
+            response = request.execute()
+            
+            if response.get("items"):
+                item = response["items"][0]
+                stats_data = item.get("statistics", {})
+                stats.update({
+                    "subscriber_count": int(stats_data.get("subscriberCount", 0)),
+                    "video_count": int(stats_data.get("videoCount", 0)),
+                    "view_count": int(stats_data.get("viewCount", 0)),
+                    "channel_name": item.get("snippet", {}).get("title", ""),
+                    "channel_id": item.get("id")  # Update with actual ID
+                })
             
             return stats
         except HttpError as e:
@@ -194,51 +207,72 @@ class YouTubeIntegration(BaseIntegration):
             self._handle_rate_limit()
             
             # Get channel uploads playlist
-            if channel_id:
-                # Get uploads playlist ID
+            if self.youtube_oauth:
+                # Always prioritize authenticated "mine" view which reveals private uploads
+                # Use the OAuth client for THIS request specifically
+                channel_request = self.youtube_oauth.channels().list(
+                    part="contentDetails",
+                    mine=True
+                )
+                # Ensure we use OAuth client for subsequent requests too
+                client = self.youtube_oauth
+            elif channel_id and self.youtube:
+                # Public fallback
                 channel_request = self.youtube.channels().list(
                     part="contentDetails",
                     id=channel_id
                 )
-                channel_response = channel_request.execute()
+                client = self.youtube
+            else:
+                 return {"error": "Channel ID required or OAuth credentials missing"}
+
+            channel_response = channel_request.execute()
+            
+            if channel_response.get("items"):
+                uploads_playlist_id = channel_response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
                 
-                if channel_response.get("items"):
-                    uploads_playlist_id = channel_response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
-                    
-                    # Get videos from uploads playlist
-                    playlist_request = self.youtube.playlistItems().list(
-                        part="snippet,contentDetails",
-                        playlistId=uploads_playlist_id,
-                        maxResults=min(max_videos, 50)
+                # Get videos from uploads playlist
+                playlist_request = client.playlistItems().list(
+                    part="snippet,contentDetails",
+                    playlistId=uploads_playlist_id,
+                    maxResults=min(max_videos, 50)
+                )
+                playlist_response = playlist_request.execute()
+                
+                video_ids = [item["contentDetails"]["videoId"] for item in playlist_response.get("items", [])]
+                
+                
+                if video_ids:
+                    self._handle_rate_limit()
+                    # Get video statistics
+                    videos_request = client.videos().list(
+                        part="statistics,snippet",
+                        id=",".join(video_ids)
                     )
-                    playlist_response = playlist_request.execute()
+                    videos_response = videos_request.execute()
                     
-                    video_ids = [item["contentDetails"]["videoId"] for item in playlist_response.get("items", [])]
-                    
-                    if video_ids:
-                        self._handle_rate_limit()
-                        # Get video statistics
-                        videos_request = self.youtube.videos().list(
-                            part="statistics,snippet",
-                            id=",".join(video_ids)
-                        )
-                        videos_response = videos_request.execute()
-                        
-                        for item in videos_response.get("items", []):
-                            stats = item.get("statistics", {})
-                            videos.append({
-                                "video_id": item["id"],
-                                "title": item["snippet"].get("title", ""),
-                                "views": int(stats.get("viewCount", 0)),
-                                "likes": int(stats.get("likeCount", 0)),
-                                "comments": int(stats.get("commentCount", 0)),
-                                "published_at": item["snippet"].get("publishedAt", "")
-                            })
+                    for item in videos_response.get("items", []):
+                        stats = item.get("statistics", {})
+                        videos.append({
+                            "video_id": item["id"],
+                            "title": item["snippet"].get("title", ""),
+                            "views": int(stats.get("viewCount", 0)),
+                            "likes": int(stats.get("likeCount", 0)),
+                            "comments": int(stats.get("commentCount", 0)),
+                            "published_at": item["snippet"].get("publishedAt", "")
+                        })
+            
             
             return {
                 "videos": videos,
                 "total_videos": len(videos),
-                "synced_at": datetime.utcnow().isoformat()
+                "synced_at": datetime.utcnow().isoformat(),
+                "debug_info": {
+                    "mode": "oauth" if client == self.youtube_oauth else "public",
+                    "channel_id_param": channel_id,
+                    "playlist_id": uploads_playlist_id,
+                    "items_found": len(video_ids)
+                }
             }
         except HttpError as e:
             return self._handle_error(e, "sync_video_analytics")
@@ -296,7 +330,7 @@ class YouTubeIntegration(BaseIntegration):
         title: str,
         description: str = "",
         tags: list = None,
-        privacy_status: str = "unlisted",
+        privacy_status: str = "public",
         category_id: str = "22"  # People & Blogs default
     ) -> Dict[str, Any]:
         """
@@ -309,7 +343,7 @@ class YouTubeIntegration(BaseIntegration):
             title: Video title
             description: Video description
             tags: List of tags
-            privacy_status: 'private', 'unlisted', or 'public'
+            privacy_status: 'private', 'unlisted', or 'public' (default: public)
             category_id: YouTube category ID (default: 22 for People & Blogs)
         
         Returns:
@@ -339,7 +373,8 @@ class YouTubeIntegration(BaseIntegration):
                     'categoryId': category_id
                 },
                 'status': {
-                    'privacyStatus': privacy_status
+                    'privacyStatus': privacy_status,
+                    'selfDeclaredMadeForKids': False
                 }
             }
             

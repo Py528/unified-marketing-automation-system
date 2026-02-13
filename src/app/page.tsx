@@ -48,20 +48,30 @@ export default function Home() {
   // Lifted Upload State
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [ytAuthValid, setYtAuthValid] = useState<boolean | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, statusRes, uploadsRes, authRes] = await Promise.all([
+        const [statsRes, statusRes, uploadsRes, authRes, analyticsRes] = await Promise.all([
           youtubeApi.getStats(),
           systemApi.getStatus(),
           uploadsApi.list(),
-          youtubeApi.getStatus()
+          youtubeApi.getStatus(),
+          youtubeApi.getAnalytics()
         ]);
         setStats(statsRes.data);
-        setSystemStatus(statusRes.data);
+        setSystemStatus({ ...statusRes.data, youtube: authRes.data.status });
         setIsOffline(false);
         setYtAuthValid(authRes.data.is_valid);
+
+        // Handle analytics data safely
+        if (analyticsRes.data && !analyticsRes.data.error) {
+          setAnalyticsData(analyticsRes.data);
+        } else {
+          console.warn('Analytics data missing or error:', analyticsRes.data);
+          setAnalyticsData({ videos: [] });
+        }
 
         // Standardize remote videos
         const remoteVideos = uploadsRes.data.map((file: any) => ({
@@ -84,6 +94,8 @@ export default function Home() {
       } catch (error) {
         console.error('Failed to fetch system data:', error);
         setIsOffline(true);
+        // Ensure analytics data is not null to prevent crashes
+        if (!analyticsData) setAnalyticsData({ videos: [] });
       } finally {
         setTimeout(() => setIsLoading(false), 1000);
       }
@@ -124,7 +136,7 @@ export default function Home() {
       case 'home':
         return (
           <div className="max-w-7xl mx-auto">
-            <DashboardView stats={stats} systemStatus={systemStatus} />
+            <DashboardView stats={stats} systemStatus={systemStatus} analyticsData={analyticsData} />
           </div>
         );
       case 'customer-cdp':
@@ -136,7 +148,7 @@ export default function Home() {
       case 'video-performance':
         return (
           <div className="max-w-7xl mx-auto">
-            <VideoPerformanceView />
+            <VideoPerformanceView stats={stats} analyticsData={analyticsData} />
           </div>
         );
       case 'integration':
@@ -162,7 +174,7 @@ export default function Home() {
       default:
         return (
           <div className="max-w-7xl mx-auto">
-            <DashboardView stats={stats} systemStatus={systemStatus} />
+            <DashboardView stats={stats} systemStatus={systemStatus} analyticsData={analyticsData} />
           </div>
         );
     }
@@ -173,7 +185,10 @@ export default function Home() {
       <Sidebar activeMenu={activeMenu} onMenuClick={setActiveMenu} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Navigation isOffline={isOffline} />
+        <Navigation
+          isOffline={isOffline}
+          onUploadSuccess={(newVideo) => setVideos(prev => [newVideo, ...prev])}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           {isOffline && (

@@ -413,7 +413,7 @@ class YouTubeExecutionHandler(ExecutionHandler):
                         title=config.get("title", "Uploaded Video"),
                         description=config.get("description", ""),
                         tags=config.get("tags", []),
-                        privacy_status=config.get("privacy_status", "unlisted")
+                        privacy_status=config.get("privacy_status", "public")
                     )
                     
                     if upload_result.get("success"):

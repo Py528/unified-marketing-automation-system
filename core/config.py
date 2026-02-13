@@ -8,6 +8,8 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+    youtube_api_key: Optional[str] = None
+    youtube_channel_id: Optional[str] = None
     
     # Database Configuration
     database_url: str = "postgresql://user:password@localhost:5432/marketing_cdp"
@@ -17,6 +19,7 @@ class Settings(BaseSettings):
     
     # API Keys - Marketing Platforms
     youtube_api_key: Optional[str] = None
+    youtube_channel_id: Optional[str] = None  # NEW: Added for YouTube analytics
     instagram_access_token: Optional[str] = None
     facebook_access_token: Optional[str] = None
     facebook_app_id: Optional[str] = None
@@ -69,4 +72,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
-

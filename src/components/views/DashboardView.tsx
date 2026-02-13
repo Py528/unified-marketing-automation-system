@@ -8,13 +8,15 @@ import UploadQueue from '@/components/UploadQueue';
 import QuotaMonitor from '@/components/QuotaMonitor';
 import CdpActivity from '@/components/CdpActivity';
 import SystemHealth from '@/components/SystemHealth';
+import ApiGapOverlay from '@/components/ApiGapOverlay';
 
 interface DashboardViewProps {
     stats: any;
     systemStatus: any;
+    analyticsData?: any;
 }
 
-export default function DashboardView({ stats, systemStatus }: DashboardViewProps) {
+export default function DashboardView({ stats, systemStatus, analyticsData }: DashboardViewProps) {
     return (
         <div className="animate-in fade-in duration-700">
             <div className="flex items-center justify-between mb-8">
@@ -52,14 +54,16 @@ export default function DashboardView({ stats, systemStatus }: DashboardViewProp
                     icon={<Eye className="w-6 h-6 text-green-600" />}
                     iconBg="bg-green-50"
                 />
-                <StatCard
-                    title="Campaign Velocity"
-                    value="12"
-                    change="24h"
-                    changeLabel="Active Loops"
-                    icon={<PlayCircle className="w-6 h-6 text-blue-600" />}
-                    iconBg="bg-blue-50"
-                />
+                <ApiGapOverlay>
+                    <StatCard
+                        title="Campaign Velocity"
+                        value="12"
+                        change="24h"
+                        changeLabel="Active Loops"
+                        icon={<PlayCircle className="w-6 h-6 text-blue-600" />}
+                        iconBg="bg-blue-50"
+                    />
+                </ApiGapOverlay>
             </div>
 
             {/* Main Grid */}
@@ -68,7 +72,7 @@ export default function DashboardView({ stats, systemStatus }: DashboardViewProp
                     <ExecutionHistory />
                 </div>
                 <div className="flex flex-col h-full">
-                    <EngagementChart />
+                    <EngagementChart data={analyticsData?.videos || []} />
                 </div>
             </div>
 

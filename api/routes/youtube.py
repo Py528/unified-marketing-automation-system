@@ -25,6 +25,27 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def get_channel_id_from_oauth(integration):
+    """Get authenticated user's channel ID using OAuth."""
+    try:
+        if not integration.youtube_oauth:
+            logger.warning("OAuth client not initialized")
+            return None
+            
+        request = integration.youtube_oauth.channels().list(
+            part="id",
+            mine=True
+        )
+        response = request.execute()
+        
+        if response.get("items"):
+            channel_id = response["items"][0]["id"]
+            logger.info(f"Detected channel ID from OAuth: {channel_id}")
+            return channel_id
+    except Exception as e:
+        logger.error(f"Failed to get channel ID from OAuth: {e}")
+    return None
+
 @router.get("/status")
 async def get_youtube_status():
     """Check YouTube OAuth token validity."""
@@ -53,23 +74,58 @@ async def get_youtube_status():
 @router.get("/stats")
 async def get_youtube_stats():
     """Fetch high-level channel stats."""
-    # Assuming channel_id is in settings or some global config
-    channel_id = os.getenv("YOUTUBE_CHANNEL_ID")
-    if not channel_id:
-        # Fallback to a default for testing or return error
-        return {"error": "Channel ID not configured"}
-        
     integration = get_youtube_integration()
+    
+    # Try env variable first, then OAuth auto-detect
+    channel_id = os.getenv("YOUTUBE_CHANNEL_ID")
+    
+    if not channel_id:
+        logger.info("YOUTUBE_CHANNEL_ID not set, attempting OAuth detection...")
+        channel_id = get_channel_id_from_oauth(integration)
+        
+    if not channel_id:
+        logger.error("Could not determine channel ID from env or OAuth")
+        return {
+            "error": "Channel ID not found. Set YOUTUBE_CHANNEL_ID env variable.",
+            "subscriber_count": 0,
+            "video_count": 0,
+            "view_count": 0,
+            "channel_name": "Unknown"
+        }
+    
+    logger.info(f"Fetching stats for channel: {channel_id}")
     stats = integration.sync_channel_stats(channel_id)
     return stats
 
 @router.get("/analytics")
 async def get_youtube_analytics():
     """Fetch video analytics for the chart."""
-    channel_id = os.getenv("YOUTUBE_CHANNEL_ID")
-    if not channel_id:
-        return {"error": "Channel ID not configured"}
-        
     integration = get_youtube_integration()
-    analytics = integration.sync_video_analytics(channel_id)
+    
+    # Try env variable first, then OAuth auto-detect
+    channel_id = os.getenv("YOUTUBE_CHANNEL_ID")
+    
+    if not channel_id:
+        logger.info("YOUTUBE_CHANNEL_ID not set, attempting OAuth detection...")
+        channel_id = get_channel_id_from_oauth(integration)
+        
+    if not channel_id:
+        logger.error("Could not determine channel ID from env or OAuth")
+        return {
+            "error": "Channel ID not found. Set YOUTUBE_CHANNEL_ID env variable.",
+            "videos": [],
+            "total_videos": 0
+        }
+    
+    logger.info(f"Fetching analytics for channel: {channel_id}")
+    analytics = integration.sync_video_analytics(channel_id, max_videos=50)
+    
+    # Ensure we always return valid structure   
+    if "error" in analytics:
+        return {
+            "error": analytics["error"],
+            "videos": [],
+            "total_videos": 0
+        }
+    
     return analytics

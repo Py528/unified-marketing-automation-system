@@ -47,8 +47,8 @@ def generate_token():
     
     # OAuth2 scopes for YouTube upload and metadata reading
     SCOPES = [
-        'https://www.googleapis.com/auth/youtube.upload',
-        'https://www.googleapis.com/auth/youtube.readonly'
+        'https://www.googleapis.com/auth/youtube',  # Full access to ensure we can read all data
+        'https://www.googleapis.com/auth/youtube.upload'
     ]
     
     print("\n[INFO] Starting OAuth2 flow...")
