@@ -12,6 +12,8 @@
 4. [Database Setup](#4-database-setup)
 5. [YouTube OAuth Setup (For Video Uploads)](#5-youtube-oauth-setup-for-video-uploads)
 6. [Instagram & Facebook Setup](#6-instagram--facebook-setup)
+
+> **📖 For a detailed, step-by-step guide to set up YouTube, Instagram, and Facebook (for teammates), see [CHANNEL_SETUP_GUIDE.md](CHANNEL_SETUP_GUIDE.md)**
 7. [Ollama Setup (Optional - For AI Features)](#7-ollama-setup-optional---for-ai-features)
 8. [Testing Your Setup](#8-testing-your-setup)
 9. [Common Issues & Troubleshooting](#9-common-issues--troubleshooting)
@@ -418,7 +420,8 @@ Database tables created successfully!
 - Test users (for development)
 - Page/Instagram account linking
 
-**For detailed instructions, see:** [FACEBOOK_INSTAGRAM_API_SETUP.md](FACEBOOK_INSTAGRAM_API_SETUP.md)
+**For detailed step-by-step instructions (recommended for teammates), see:** [CHANNEL_SETUP_GUIDE.md](CHANNEL_SETUP_GUIDE.md)  
+**For technical reference, see:** [FACEBOOK_INSTAGRAM_API_SETUP.md](FACEBOOK_INSTAGRAM_API_SETUP.md)
 
 **Quick Summary:**
 1. Go to App Dashboard → Settings → Basic

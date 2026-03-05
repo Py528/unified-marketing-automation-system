@@ -29,6 +29,7 @@ A unified marketing automation platform powered by CrewAI, integrating YouTube, 
 ### Setup
 
 **📖 For complete team setup guide, see [TEAM_SETUP_GUIDE.md](TEAM_SETUP_GUIDE.md)**  
+**📖 For YouTube, Instagram & Facebook setup (teammates), see [CHANNEL_SETUP_GUIDE.md](CHANNEL_SETUP_GUIDE.md)**  
 **📖 For detailed testing instructions, see [SETUP.md](SETUP.md)**
 
 Quick setup:
@@ -117,4 +118,16 @@ See the implementation plan for detailed architecture.
 - **Tested and working with YouTube!**
 
 📋 **See [SETUP.md](SETUP.md) for setup and testing instructions**
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [TEAM_SETUP_GUIDE.md](TEAM_SETUP_GUIDE.md) | Complete team setup from scratch |
+| [CHANNEL_SETUP_GUIDE.md](CHANNEL_SETUP_GUIDE.md) | YouTube, Instagram & Facebook setup for teammates |
+| [SETUP.md](SETUP.md) | Detailed testing instructions |
+| [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) | Architecture and module status |
+| [MEDIA_UPLOAD_FUTURE.md](MEDIA_UPLOAD_FUTURE.md) | Planned: media upload flow for user-created content |
+| [MULTI_PLATFORM_MEDIA_FUTURE.md](MULTI_PLATFORM_MEDIA_FUTURE.md) | Planned: one content → multiple formats (aspect ratios) per platform |
+| [PERSONALIZATION_ENGINE_PLAN.md](PERSONALIZATION_ENGINE_PLAN.md) | Planned: Ollama-powered titles, captions, tags, ideas (AI or user-provided input) |
 
