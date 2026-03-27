@@ -43,14 +43,31 @@ if [ $COUNT -eq $MAX_RETRIES ]; then
     cleanup
 fi
 
-# 3. Initialize Database
+# 3. Detect and Initialize Virtual Environment
+if [ -d "venv" ]; then
+    VENV_PATH="./venv"
+elif [ -d ".venv" ]; then
+    VENV_PATH="./.venv"
+else
+    echo "❌ No virtual environment found. Please create one with 'python3 -m venv venv' and install dependencies."
+    cleanup
+fi
+
+echo "🐍 Checking/Installing Python dependencies..."
+$VENV_PATH/bin/pip install -r requirements.txt > /dev/null 2>&1
+
 echo "🔧 Initializing database tables..."
-./venv/bin/python3 scripts/init_db.py
+$VENV_PATH/bin/python3 scripts/init_db.py
 
 # 4. Start FastAPI Backend in background
 echo "🔥 Starting FastAPI Backend API..."
-./venv/bin/python3 -m api.main > backend.log 2>&1 &
+$VENV_PATH/bin/python3 -m api.main > backend.log 2>&1 &
 BACKEND_PID=$!
+
+# 4.1 Start Celery Worker
+echo "⚙️ Starting Celery Worker (Solo Pool for macOS stability)..."
+$VENV_PATH/bin/celery -A services.scheduler worker --loglevel=info --pool=solo > worker.log 2>&1 &
+WORKER_PID=$!
 
 # Give backend a moment to start
 sleep 2

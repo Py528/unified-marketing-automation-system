@@ -6,7 +6,9 @@ from api.routes.youtube import get_youtube_status
 
 router = APIRouter()
 
-UPLOAD_DIR = "/Users/pranavshinde/Developer/marketing-automation-system/uploads"
+# Get project root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+UPLOAD_DIR = os.path.join(PROJECT_ROOT, "uploads")
 
 @router.get("/")
 async def list_uploads():
@@ -30,8 +32,9 @@ async def list_uploads():
 @router.post("/")
 async def upload_file(file: UploadFile = File(...)):
     """Upload a new video file using streaming."""
-    if not file.filename.endswith((".mp4", ".mov")):
-        raise HTTPException(status_code=400, detail="Only .mp4 and .mov format allowed")
+    allowed_extensions = (".mp4", ".mov", ".jpg", ".jpeg", ".png", ".webp")
+    if not file.filename.lower().endswith(allowed_extensions):
+        raise HTTPException(status_code=400, detail=f"Unsupported file format. Allowed: {allowed_extensions}")
         
     if not os.path.exists(UPLOAD_DIR):
         os.makedirs(UPLOAD_DIR)
@@ -87,3 +90,30 @@ async def get_task_status(task_id: str):
         response["meta"] = task_result.info
         
     return response
+
+@router.post("/publish-batch")
+async def publish_batch(data: Dict[str, Any]):
+    """Enqueue multiple YouTube publishing tasks."""
+    files = data.get("files", []) # List of {filename, metadata}
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided for batch publish")
+        
+    yt_status = await get_youtube_status()
+    if not yt_status.get("is_valid"):
+        raise HTTPException(status_code=401, detail="YouTube account not connected")
+        
+    task_ids = []
+    for item in files:
+        filename = item.get("filename")
+        metadata = item.get("metadata", {})
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        
+        if os.path.exists(file_path):
+            task = publish_video.delay(file_path, metadata)
+            task_ids.append({"filename": filename, "task_id": task.id})
+            
+    return {
+        "success": True,
+        "enqueued": len(task_ids),
+        "tasks": task_ids
+    }

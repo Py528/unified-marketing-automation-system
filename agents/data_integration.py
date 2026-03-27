@@ -22,7 +22,7 @@ from api_integrations.instagram import InstagramIntegration
 from api_integrations.facebook import FacebookIntegration
 from api_integrations.email_sms import EmailSMSIntegration
 from core.cdp import CDPService
-from core.database import ChannelType, CustomerEvent
+from core.database import ChannelType, CustomerEvent, AnalyticsSnapshot, Campaign, CampaignStatus
 from core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -261,28 +261,124 @@ class DataIntegrationAgent:
         return results
     
     def _process_youtube_data(self, sync_result: Dict[str, Any]):
-        """Process YouTube sync data and store in CDP."""
-        # Extract subscriber/engagement data
+        """Process YouTube sync data and store as AnalyticsSnapshot."""
         channel_stats = sync_result.get("channel_stats", {})
-        video_analytics = sync_result.get("video_analytics", {})
-        
-        # Store aggregated stats (could be associated with a channel owner customer)
-        # This is a simplified version - in production, you'd map to actual customers
-        logger.info(f"Processed YouTube data: {len(video_analytics.get('videos', []))} videos")
+        if not channel_stats or "error" in channel_stats:
+            return
+
+        # 1. Get or create a "System" campaign for overall channel stats
+        system_campaign_name = "Global YouTube Stats"
+        campaign = self.db.query(Campaign).filter(
+            Campaign.name == system_campaign_name,
+            Campaign.channel == ChannelType.YOUTUBE
+        ).first()
+
+        if not campaign:
+            campaign = Campaign(
+                name=system_campaign_name,
+                channel=ChannelType.YOUTUBE,
+                status=CampaignStatus.COMPLETED,
+                config={"is_system": True}
+            )
+            self.db.add(campaign)
+            self.db.commit()
+            self.db.refresh(campaign)
+
+        # 2. Save current stats as a snapshot
+        metrics = {
+            "subscriber_count": channel_stats.get("subscriber_count", 0),
+            "video_count": channel_stats.get("video_count", 0),
+            "view_count": channel_stats.get("view_count", 0),
+            "channel_name": channel_stats.get("channel_name", "")
+        }
+
+        snapshot = AnalyticsSnapshot(
+            campaign_id=campaign.campaign_id,
+            metrics=metrics,
+            timestamp=datetime.utcnow()
+        )
+        self.db.add(snapshot)
+        self.db.commit()
+
+        logger.info(f"Saved YouTube AnalyticsSnapshot for {system_campaign_name}")
     
     def _process_instagram_data(self, sync_result: Dict[str, Any]):
-        """Process Instagram sync data and store in CDP."""
+        """Process Instagram sync data and store as AnalyticsSnapshot."""
         account_info = sync_result.get("account_info", {})
-        posts = sync_result.get("posts", {})
-        
-        logger.info(f"Processed Instagram data: {posts.get('total_posts', 0)} posts")
+        if not account_info or "error" in account_info:
+            return
+
+        system_campaign_name = "Global Instagram Stats"
+        campaign = self.db.query(Campaign).filter(
+            Campaign.name == system_campaign_name,
+            Campaign.channel == ChannelType.INSTAGRAM
+        ).first()
+
+        if not campaign:
+            campaign = Campaign(
+                name=system_campaign_name,
+                channel=ChannelType.INSTAGRAM,
+                status=CampaignStatus.COMPLETED,
+                config={"is_system": True}
+            )
+            self.db.add(campaign)
+            self.db.commit()
+            self.db.refresh(campaign)
+
+        metrics = {
+            "subscriber_count": account_info.get("followers_count", 0),
+            "video_count": account_info.get("media_count", 0),
+            "view_count": account_info.get("total_impressions", 0),
+            "channel_name": account_info.get("username", "Instagram User")
+        }
+
+        snapshot = AnalyticsSnapshot(
+            campaign_id=campaign.campaign_id,
+            metrics=metrics,
+            timestamp=datetime.utcnow()
+        )
+        self.db.add(snapshot)
+        self.db.commit()
+        logger.info(f"Saved Instagram AnalyticsSnapshot for {system_campaign_name}")
     
     def _process_facebook_data(self, sync_result: Dict[str, Any]):
-        """Process Facebook sync data and store in CDP."""
+        """Process Facebook sync data and store as AnalyticsSnapshot."""
         page_insights = sync_result.get("page_insights", {})
-        page_posts = sync_result.get("page_posts", {})
-        
-        logger.info(f"Processed Facebook data: {page_posts.get('total_posts', 0)} posts")
+        if not page_insights or "error" in page_insights:
+            return
+
+        system_campaign_name = "Global Facebook Stats"
+        campaign = self.db.query(Campaign).filter(
+            Campaign.name == system_campaign_name,
+            Campaign.channel == ChannelType.FACEBOOK
+        ).first()
+
+        if not campaign:
+            campaign = Campaign(
+                name=system_campaign_name,
+                channel=ChannelType.FACEBOOK,
+                status=CampaignStatus.COMPLETED,
+                config={"is_system": True}
+            )
+            self.db.add(campaign)
+            self.db.commit()
+            self.db.refresh(campaign)
+
+        metrics = {
+            "subscriber_count": page_insights.get("fan_count", 0),
+            "video_count": page_insights.get("total_posts", 0),
+            "view_count": page_insights.get("page_impressions", 0),
+            "channel_name": page_insights.get("page_name", "Facebook Page")
+        }
+
+        snapshot = AnalyticsSnapshot(
+            campaign_id=campaign.campaign_id,
+            metrics=metrics,
+            timestamp=datetime.utcnow()
+        )
+        self.db.add(snapshot)
+        self.db.commit()
+        logger.info(f"Saved Facebook AnalyticsSnapshot for {system_campaign_name}")
     
     def _process_email_sms_data(self, sync_result: Dict[str, Any]):
         """Process Email/SMS sync data and store in CDP."""

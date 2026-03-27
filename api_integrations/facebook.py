@@ -1,6 +1,7 @@
 """Facebook Graph API integration."""
 
 import logging
+import os
 import requests
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -37,7 +38,7 @@ class FacebookIntegration(BaseIntegration):
         
         try:
             self._handle_rate_limit()
-            response = requests.get(f"{self.BASE_URL}/{endpoint}", params=params, timeout=30)
+            response = requests.get(f"{self.BASE_URL}/{endpoint}", params=params, timeout=60)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -197,6 +198,114 @@ class FacebookIntegration(BaseIntegration):
         except Exception as e:
             return self._handle_error(e, "sync_ad_performance")
     
+    def publish_post(self, message: str) -> str:
+        """Publish a simple text post to the Facebook page."""
+        if not self.page_id:
+            raise ValueError("Facebook Page ID is required for publishing")
+            
+        endpoint = f"{self.page_id}/feed"
+        params = {
+            "message": message,
+            "access_token": self.access_token
+        }
+        
+        try:
+            response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, timeout=90)
+            if response.status_code != 200:
+                print(f"Facebook API Error Body: {response.text}")
+            response.raise_for_status()
+            return response.json().get("id")
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            try:
+                error_json = response.json()
+                error_detail = error_json.get("error", {}).get("message", response.text)
+            except:
+                pass
+            print(f"Failed to publish Facebook post: {error_detail}")
+            raise Exception(f"Facebook API Error: {error_detail}")
+        except Exception as e:
+            print(f"Failed to publish Facebook post: {e}")
+            raise
+
+    def publish_photo(self, photo_source: str, message: str = "") -> str:
+        """Publish a photo to the Facebook page. photo_source can be a URL or local path."""
+        if not self.page_id:
+            raise ValueError("Facebook Page ID is required for publishing")
+            
+        endpoint = f"{self.page_id}/photos"
+        is_local = os.path.exists(photo_source)
+        
+        params = {
+            "caption": message,
+            "access_token": self.access_token
+        }
+        
+        try:
+            if is_local:
+                with open(photo_source, 'rb') as f:
+                    files = {'source': f}
+                    response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, files=files, timeout=90)
+            else:
+                params["url"] = photo_source
+                response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, timeout=90)
+                
+            if response.status_code != 200:
+                print(f"Facebook API Error Body: {response.text}")
+            response.raise_for_status()
+            return response.json().get("post_id") or response.json().get("id")
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            try:
+                error_json = response.json()
+                error_detail = error_json.get("error", {}).get("message", response.text)
+            except:
+                pass
+            print(f"Failed to publish Facebook photo: {error_detail}")
+            raise Exception(f"Facebook API Error: {error_detail}")
+        except Exception as e:
+            print(f"Failed to publish Facebook photo: {e}")
+            raise
+
+    def publish_video(self, video_source: str, description: str = "") -> str:
+        """Publish a video to the Facebook page. video_source can be a URL or local path."""
+        if not self.page_id:
+            raise ValueError("Facebook Page ID is required for publishing")
+            
+        endpoint = f"{self.page_id}/videos"
+        is_local = os.path.exists(video_source)
+        
+        params = {
+            "description": description,
+            "access_token": self.access_token
+        }
+        
+        try:
+            if is_local:
+                with open(video_source, 'rb') as f:
+                    files = {'source': f}
+                    response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, files=files, timeout=300) # Increased for direct upload
+            else:
+                params["file_url"] = video_source
+                response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, timeout=120)
+                
+            if response.status_code != 200:
+                print(f"Facebook API Error Body: {response.text}")
+            response.raise_for_status()
+            return response.json().get("id")
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            try:
+                error_json = response.json()
+                error_detail = error_json.get("error", {}).get("message", response.text)
+            except:
+                pass
+            print(f"Failed to publish Facebook video: {error_detail}")
+            raise Exception(f"Facebook API Error: {error_detail}")
+        except Exception as e:
+            print(f"Failed to publish Facebook video: {e}")
+            raise
+
     def sync_data(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         """
         Sync all Facebook data.

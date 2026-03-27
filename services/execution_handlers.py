@@ -238,12 +238,54 @@ class InstagramExecutionHandler(ExecutionHandler):
         }
         
         try:
-            # In production, would use Instagram Graph API to publish
-            # For now, simulate success
-            results["posted"] = True
-            results["post_id"] = f"ig_{campaign.campaign_id}_{datetime.utcnow().timestamp()}"
+            config = campaign.config
+            content = config.get("content", "")
+            media_url = config.get("media_url")
+            media_type = config.get("media_type", "IMAGE")
             
-            logger.info(f"Instagram campaign {campaign.campaign_id} executed")
+            if media_url:
+                # Resolve local path for proxy upload
+                resolved_source = media_url
+                local_path = None
+                if "/uploads/" in media_url:
+                    filename = media_url.split("/uploads/")[-1]
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    local_path = os.path.join(project_root, "uploads", filename)
+                
+                # If local file exists, proxy it through uguu.se to bypass tunnel landing pages
+                if local_path and os.path.exists(local_path):
+                    print(f"DEBUG: Local file detected for Instagram. Proxying through uguu.se...")
+                    try:
+                        import requests
+                        with open(local_path, 'rb') as f:
+                            files = {'files[]': f}
+                            # Using uguu.se as a clean temporary host (no landing pages for crawlers)
+                            resp = requests.post("https://uguu.se/upload.php", files=files, timeout=45)
+                            if resp.status_code == 200:
+                                proxy_url = resp.json()['files'][0]['url']
+                                print(f"DEBUG: Successfully proxied to: {proxy_url}")
+                                media_url = proxy_url
+                            else:
+                                print(f"DEBUG: Proxy upload failed (status {resp.status_code}), falling back to tunnel URL")
+                    except Exception as e:
+                        print(f"DEBUG: Proxy upload exception: {e}, falling back to tunnel URL")
+
+                print(f"DEBUG: InstagramExecutionHandler creating container for: {media_url}")
+                
+            # Step 1: Create container
+            creation_id = self.integration.create_media_container(media_url, content, media_type)
+            
+            # Step 2: WAIT for processing (for Video/Reels)
+            if media_type in ["VIDEO", "REELS"]:
+                self.integration.wait_for_container_ready(creation_id)
+            
+            # Step 3: Publish container
+            post_id = self.integration.publish_media_container(creation_id)
+            
+            results["posted"] = True
+            results["post_id"] = post_id
+            
+            logger.info(f"Instagram campaign {campaign.campaign_id} executed: post_id={post_id}")
             
             return {
                 "success": True,
@@ -283,9 +325,14 @@ class FacebookExecutionHandler(ExecutionHandler):
     ) -> Dict[str, Any]:
         """Execute Facebook campaign."""
         if not self.integration:
+            error_msg = "Facebook integration not initialized. "
+            if not self.credentials.get("access_token"):
+                error_msg += "Missing access_token. "
+            if not self.credentials.get("page_id"):
+                error_msg += "Missing page_id. "
             return {
                 "success": False,
-                "error": "Facebook integration not initialized. Check access token."
+                "error": error_msg
             }
         
         results = {
@@ -294,11 +341,33 @@ class FacebookExecutionHandler(ExecutionHandler):
         }
         
         try:
-            # Simulate posting
-            results["posted"] = True
-            results["post_id"] = f"fb_{campaign.campaign_id}_{datetime.utcnow().timestamp()}"
+            config = campaign.config
+            message = config.get("message", "")
+            media_url = config.get("media_url")
             
-            logger.info(f"Facebook campaign {campaign.campaign_id} executed")
+            if media_url:
+                # Try to resolve to a local file for direct upload
+                resolved_source = media_url
+                if "/uploads/" in media_url:
+                    filename = media_url.split("/uploads/")[-1]
+                    # Get project root (services/execution_handlers.py -> services/ -> root)
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    local_path = os.path.join(project_root, "uploads", filename)
+                    if os.path.exists(local_path):
+                        resolved_source = local_path
+                
+                is_video = any(resolved_source.lower().endswith(ext) for ext in ['.mp4', '.mov', '.avi', '.mkv'])
+                if is_video:
+                    post_id = self.integration.publish_video(resolved_source, message)
+                else:
+                    post_id = self.integration.publish_photo(resolved_source, message)
+            else:
+                post_id = self.integration.publish_post(message)
+                
+            results["posted"] = True
+            results["post_id"] = post_id
+            
+            logger.info(f"Facebook campaign {campaign.campaign_id} executed: post_id={post_id}")
             
             return {
                 "success": True,

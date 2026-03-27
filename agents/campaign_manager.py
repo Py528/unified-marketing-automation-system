@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from crewai import Agent, Task
+from crewai import Agent, Task, LLM
 try:
     from langchain_ollama import OllamaLLM as Ollama
 except ImportError:
@@ -50,12 +50,13 @@ class CampaignManagerAgent:
         # Initialize LLM (free tier - Ollama by default)
         if llm is None:
             if settings.llm_provider == "ollama":
-                self.llm = Ollama(
-                    model=settings.ollama_model,
+                self.llm = LLM(
+                    model=f"ollama/{settings.ollama_model}",
                     base_url=settings.ollama_base_url
                 )
             else:
-                self.llm = Ollama(model="llama3")
+                # Fallback to Ollama llama3 if provider unknown
+                self.llm = LLM(model="ollama/llama3")
         else:
             self.llm = llm
         

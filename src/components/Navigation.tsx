@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Search, Bell, HelpCircle, ChevronDown, WifiOff, Upload } from 'lucide-react';
+import { Show, UserButton } from "@clerk/nextjs";
 import UploadModal from '@/components/UploadModal';
 
 interface NavigationProps {
@@ -9,7 +10,6 @@ interface NavigationProps {
 
 export default function Navigation({ isOffline, onUploadSuccess }: NavigationProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   return (
@@ -26,9 +26,9 @@ export default function Navigation({ isOffline, onUploadSuccess }: NavigationPro
             <span className="text-lg font-semibold flex items-center gap-3">
               <span className="font-bold">Unified Marketing</span>
               {isOffline && (
-                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded-full">
+                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black uppercase rounded-full border border-orange-200">
                   <WifiOff className="w-3 h-3" />
-                  SYSTEM OFFLINE
+                  Cloud Sync Paused
                 </span>
               )}
             </span>
@@ -83,40 +83,11 @@ export default function Navigation({ isOffline, onUploadSuccess }: NavigationPro
             <HelpCircle className="w-5 h-5 text-gray-600" />
           </button>
 
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded-lg p-1 pr-2 transition-colors"
-            >
-              <div className="relative">
-                <img
-                  src="https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100"
-                  alt="User"
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  2
-                </div>
-              </div>
-              <span className="text-sm font-medium text-gray-700">Rylie</span>
-              <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  Profile Settings
-                </button>
-                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  Notifications (2)
-                </button>
-                <div className="border-t border-gray-100 my-1"></div>
-                <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors">
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
+          <Show when="signed-in">
+            <div className="pl-2 border-l border-gray-200">
+              <UserButton appearance={{ elements: { userButtonAvatarBox: "w-8 h-8" } }} />
+            </div>
+          </Show>
         </div>
       </div>
 

@@ -357,7 +357,7 @@ def publish_video(self, video_path: str, metadata: Dict[str, Any]):
         self.update_state(state='UPLOADING', meta={'filename': filename})
         
         # 2. Check for absolute path to youtube_token.json
-        project_root = "/Users/pranavshinde/Developer/marketing-automation-system"
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         token_file = os.path.join(project_root, "youtube_token.json")
         
         # 3. Prepare credentials exactly as in the test script

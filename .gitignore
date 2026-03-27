@@ -102,3 +102,6 @@ youtube_oauth_credentials.json
 youtube_oauth_credentials.json
 youtube_token.json
 .env
+
+# clerk configuration (can include secrets)
+/.clerk/

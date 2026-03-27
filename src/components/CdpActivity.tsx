@@ -1,4 +1,6 @@
-import { User, Mail, MessageSquare, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Mail, MessageSquare, RefreshCw, Smartphone } from 'lucide-react';
+import { cdpApi } from '@/services/api';
 
 interface Activity {
   id: string;
@@ -6,16 +8,45 @@ interface Activity {
   action: string;
   target: string;
   time: string;
-  icon: 'user' | 'mail' | 'chat';
+  icon: 'user' | 'mail' | 'chat' | 'system';
 }
 
-const activities: Activity[] = [
-  { id: '1', user: 'Alex M.', action: 'subscribed to', target: 'channel', time: 'Just now', icon: 'user' },
-  { id: '2', user: 'Sarah K.', action: 'commented on', target: 'Shorts #42', time: '15 mins ago', icon: 'chat' },
-  { id: '3', user: 'Mike R.', action: 'opened', target: 'Weekly Digest', time: '2 hours ago', icon: 'mail' },
-];
-
 export default function CdpActivityEnhanced() {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchActivity = async () => {
+    try {
+      const res = await cdpApi.getActivity();
+      const mapped: Activity[] = res.data.map((e: any) => {
+        let iconType: 'user' | 'mail' | 'chat' | 'system' = 'user';
+        if (e.event_type.includes('comment')) iconType = 'chat';
+        if (e.event_type.includes('email') || e.event_type.includes('sms')) iconType = 'mail';
+        if (e.event_type.includes('system')) iconType = 'system';
+
+        return {
+          id: e.id,
+          user: e.details?.customer_name || 'System',
+          action: e.event_type.replace(/_/g, ' '),
+          target: e.channel || 'Global',
+          time: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          icon: iconType
+        };
+      });
+      setActivities(mapped);
+    } catch (error) {
+      console.error('Failed to fetch CDP activity:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivity();
+    const interval = setInterval(fetchActivity, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
   const showEmpty = activities.length === 0;
 
   return (

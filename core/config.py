@@ -50,15 +50,24 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     streamlit_port: int = 8501
+    public_api_url: Optional[str] = None
+    
+    # Social Integration Configuration
+    instagram_app_id: Optional[str] = None
+    instagram_app_secret: Optional[str] = None
+    facebook_page_id: Optional[str] = None
+    instagram_business_account_id: Optional[str] = None
+    instagram_test_media_url: Optional[str] = None
     
     # Celery Configuration
     celery_broker_url: Optional[str] = None
     celery_result_backend: Optional[str] = None
     
     class Config:
-        env_file = ".env"
+        env_file = (".env", ".env.local")
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"
         
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Zap, Home, Users, Video, Settings, LogOut, Plus, Upload } from 'lucide-react';
+import { LayoutDashboard, Zap, Home, Users, Video, Settings, LogOut, Plus, Upload, Share2 } from 'lucide-react';
 
 interface SidebarProps {
   activeMenu?: string;
@@ -73,6 +73,16 @@ export default function Sidebar({ activeMenu = 'dashboard', onMenuClick }: Sideb
             >
               <Upload className="w-4 h-4" />
               Media Command
+            </button>
+            <button
+              onClick={() => handleMenuClick('social-publish')}
+              className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors ${activeMenu === 'social-publish'
+                ? 'bg-orange-50 text-orange-600 font-medium'
+                : 'text-gray-700 hover:bg-gray-50'
+                }`}
+            >
+              <Share2 className="w-4 h-4" />
+              Social Publish
             </button>
           </div>
         </div>

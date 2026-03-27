@@ -2,6 +2,7 @@
 
 import logging
 import requests
+import time
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -179,6 +180,86 @@ class InstagramIntegration(BaseIntegration):
         except Exception as e:
             return self._handle_error(e, "sync_stories")
     
+    def get_container_status(self, creation_id: str) -> Dict[str, Any]:
+        """Check the processing status of a media container."""
+        return self._make_request(creation_id, params={"fields": "status_code,status"})
+
+    def wait_for_container_ready(self, creation_id: str, max_wait_seconds: int = 600) -> bool:
+        """Poll container status until it's ready for publishing."""
+        start_time = datetime.utcnow().timestamp()
+        
+        while (datetime.utcnow().timestamp() - start_time) < max_wait_seconds:
+            status_data = self.get_container_status(creation_id)
+            status_code = status_data.get("status_code")
+            
+            if status_code == "FINISHED":
+                logger.info(f"Instagram container {creation_id} is READY")
+                return True
+            elif status_code == "ERROR":
+                error_msg = status_data.get("status", "Unknown processing error")
+                logger.error(f"Instagram container {creation_id} failed processing: {error_msg}")
+                raise Exception(f"Instagram media processing failed: {error_msg}")
+            
+            logger.info(f"Waiting for Instagram container {creation_id} (status: {status_code})...")
+            time.sleep(5)
+            
+        raise Exception("Timed out waiting for Instagram media processing")
+
+    def create_media_container(self, media_url: str, caption: str, media_type: str = "IMAGE") -> str:
+        """
+        Step 1: Create a media container on Instagram.
+        Returns the container ID.
+        """
+        if not self.instagram_account_id:
+            raise ValueError("Instagram Business Account ID is required for publishing")
+            
+        endpoint = f"{self.instagram_account_id}/media"
+        params = {
+            "caption": caption,
+            "access_token": self.access_token
+        }
+        
+        if media_type in ["VIDEO", "REELS"]:
+            params["media_type"] = "REELS"
+            params["video_url"] = media_url
+            params["share_to_feed"] = "true"
+        else:
+            params["image_url"] = media_url
+            
+        try:
+            response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, timeout=120)
+            if response.status_code != 200:
+                print(f"Instagram API Error Body: {response.text}")
+            response.raise_for_status()
+            return response.json().get("id")
+        except Exception as e:
+            print(f"Failed to create Instagram media container: {e}")
+            raise
+
+    def publish_media_container(self, creation_id: str) -> str:
+        """
+        Step 2: Publish the created media container.
+        Returns the media ID (post ID).
+        """
+        if not self.instagram_account_id:
+            raise ValueError("Instagram Business Account ID is required for publishing")
+            
+        endpoint = f"{self.instagram_account_id}/media_publish"
+        params = {
+            "creation_id": creation_id,
+            "access_token": self.access_token
+        }
+        
+        try:
+            response = requests.post(f"{self.BASE_URL}/{endpoint}", params=params, timeout=120)
+            if response.status_code != 200:
+                print(f"Instagram API Error Body: {response.text}")
+            response.raise_for_status()
+            return response.json().get("id")
+        except Exception as e:
+            print(f"Failed to publish Instagram media container: {e}")
+            raise
+
     def sync_data(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         """
         Sync all Instagram data.
